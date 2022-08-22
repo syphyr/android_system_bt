@@ -148,7 +148,7 @@ static tAVRC_STS avrc_pars_vendor_rsp(tAVRC_MSG_VENDOR *p_msg, tAVRC_RESPONSE *p
 
 tAVRC_STS avrc_parse_notification_rsp(UINT8* p_stream, UINT16 len,
                                       tAVRC_REG_NOTIF_RSP* p_rsp) {
-    UINT16 min_len = 1;
+    UINT32 min_len = 1;
 
     if (len < min_len) goto length_error;
     BE_STREAM_TO_UINT8(p_rsp->event_id, p_stream);
@@ -241,7 +241,7 @@ static tAVRC_STS avrc_ctrl_pars_vendor_rsp(
     p++; /* skip the reserved/packe_type byte */
 
     UINT16  len;
-    UINT16  min_len = 0;
+    UINT32  min_len = 0;
     BE_STREAM_TO_UINT16 (len, p);
     AVRC_TRACE_DEBUG("%s ctype:0x%x pdu:0x%x, len:%d  vendor_len=0x%x", __func__,
                     p_msg->hdr.ctype, p_result->pdu, len, p_msg->vendor_len);
@@ -541,12 +541,8 @@ static tAVRC_STS avrc_ctrl_pars_vendor_rsp(
                 BE_STREAM_TO_UINT32(p_attrs[i].attr_id, p);
                 BE_STREAM_TO_UINT16(p_attrs[i].name.charset_id, p);
                 BE_STREAM_TO_UINT16(p_attrs[i].name.str_len, p);
-                if ((UINT16)(min_len + p_attrs[i].name.str_len) <
-                    min_len) {
-                   // Check for overflow
-                   android_errorWriteLog(0x534e4554, "205570663");
-                }
-                if (len - min_len < p_attrs[i].name.str_len)
+                min_len += p_attrs[i].name.str_len;
+                if (len < min_len)
                 {
                    for (int j = 0; j < i; j++)
                    {
@@ -556,7 +552,6 @@ static tAVRC_STS avrc_ctrl_pars_vendor_rsp(
                    p_result->get_attrs.num_attrs = 0;
                    goto length_error;
                 }
-                min_len += p_attrs[i].name.str_len;
                 if (p_attrs[i].name.str_len > 0)
                 {
                     p_attrs[i].name.p_str = (UINT8 *)osi_calloc(p_attrs[i].name.str_len);
